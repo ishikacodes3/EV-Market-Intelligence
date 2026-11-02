@@ -1,0 +1,47 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EV Market Intelligence</title><link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}">
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script></head><body>
+<header><div><div class="eyebrow">MOBILITY • MARKET INTELLIGENCE</div><h1>Electric Vehicle Market</h1><p>Executive performance dashboard</p></div><nav><a class="active" href="/">Dashboard</a><a href="/story">Market Story</a><a href="/download">Download CSV ↓</a></nav></header>
+<main><section class="toolbar"><div><label>Year</label><select id="year"><option>All</option>{% for x in years %}<option>{{x}}</option>{% endfor %}</select></div>
+<div><label>Vehicle category</label><select id="category"><option>All</option>{% for x in categories %}<option>{{x}}</option>{% endfor %}</select></div>
+<div><label>Manufacturer</label><select id="manufacturer"><option>All</option>{% for x in manufacturers %}<option>{{x}}</option>{% endfor %}</select></div>
+<button id="reset">Reset filters</button><span id="status">Live data</span></section>
+<section class="kpis">
+<div class="kpi"><span>Total annual sales</span><strong id="sales">—</strong><small>Units represented in dataset</small></div>
+<div class="kpi"><span>Vehicle model records</span><strong id="models">—</strong><small>Filtered records</small></div>
+<div class="kpi"><span>Average driving range</span><strong id="range">—</strong><small>Kilometres</small></div>
+<div class="kpi"><span>Average customer rating</span><strong id="rating">—</strong><small>Out of 5</small></div>
+<div class="kpi"><span>Average battery capacity</span><strong id="battery">—</strong><small>kWh</small></div></section>
+<section class="grid">
+<article class="panel wide"><div class="panelhead"><h2>Sales by vehicle category</h2><span>Category contribution</span></div><div id="categoryChart" class="chart"></div></article>
+<article class="panel"><div class="panelhead"><h2>Manufacturer performance</h2><span>Top 10 by sales</span></div><div id="manufacturerChart" class="chart"></div></article>
+<article class="panel"><div class="panelhead"><h2>Battery technology mix</h2><span>Model records</span></div><div id="batteryChart" class="chart"></div></article>
+<article class="panel"><div class="panelhead"><h2>Average range by category</h2><span>Distance (km)</span></div><div id="rangeChart" class="chart"></div></article>
+<article class="panel"><div class="panelhead"><h2>Manufacturing geography</h2><span>Sales by country</span></div><div id="countryChart" class="chart"></div></article>
+<article class="panel"><div class="panelhead"><h2>Customer satisfaction</h2><span>Average rating / 5</span></div><div id="ratingChart" class="chart"></div></article>
+<article class="panel wide"><div class="panelhead"><h2>High-volume vehicle records</h2><span>Top 12 filtered records</span></div><div class="tablewrap"><table><thead><tr><th>Manufacturer</th><th>Model</th><th>Category</th><th>Year</th><th>Sales</th><th>Battery</th><th>Range km</th><th>Country</th><th>Rating</th></tr></thead><tbody id="dataRows"></tbody></table></div></article>
+</section><footer>EV Market Intelligence • Educational analytics project • Dataset is synthetic and generated for demonstration.</footer></main>
+<script>
+const $=id=>document.getElementById(id);
+const layout={margin:{l:45,r:20,t:15,b:55},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',font:{family:'Arial',color:'#dce7f5',size:11},xaxis:{gridcolor:'#26364a'},yaxis:{gridcolor:'#26364a'},legend:{orientation:'h',y:-0.2}};
+function plot(id,data,extra={}){Plotly.react(id,data,{...layout,...extra},{responsive:true,displayModeBar:false});}
+function fmt(n){return Number(n||0).toLocaleString('en-IN',{maximumFractionDigits:1});}
+async function refresh(){
+ const params=new URLSearchParams({year:$('year').value,category:$('category').value,manufacturer:$('manufacturer').value});
+ $('status').textContent='Updating…';
+ const d=await (await fetch('/api/dashboard?'+params)).json(),k=d.kpis;
+ $('sales').textContent=fmt(k.total_sales);$('models').textContent=fmt(k.vehicle_models);
+ $('range').textContent=fmt(k.avg_range)+' km';$('rating').textContent=fmt(k.avg_rating)+'/5';$('battery').textContent=fmt(k.avg_battery)+' kWh';
+ plot('categoryChart',[{type:'bar',x:d.category_sales.map(x=>x.category),y:d.category_sales.map(x=>x.sales),marker:{color:'#48b6a6'}}]);
+ plot('manufacturerChart',[{type:'bar',orientation:'h',x:d.manufacturer_sales.map(x=>x.sales),y:d.manufacturer_sales.map(x=>x.manufacturer),marker:{color:'#6d8df5'}}],{margin:{l:110,r:15,t:10,b:35}});
+ plot('batteryChart',[{type:'pie',labels:d.battery_mix.map(x=>x.battery_technology),values:d.battery_mix.map(x=>x.models),hole:.58,textinfo:'label+percent'}],{showlegend:false});
+ plot('rangeChart',[{type:'bar',x:d.range_category.map(x=>x.category),y:d.range_category.map(x=>x.avg_range),marker:{color:'#e7a85b'}}]);
+ plot('countryChart',[{type:'bar',x:d.country_production.map(x=>x.manufacturing_country),y:d.country_production.map(x=>x.sales),marker:{color:'#a18be8'}}],{xaxis:{tickangle:-25,gridcolor:'#26364a'}});
+ plot('ratingChart',[{type:'bar',x:d.ratings.map(x=>x.category),y:d.ratings.map(x=>x.rating),marker:{color:'#5eb4d8'}}],{yaxis:{range:[0,5],gridcolor:'#26364a'}});
+ $('dataRows').innerHTML=d.rows.map(r=>`<tr><td>${r.manufacturer}</td><td>${r.model}</td><td>${r.category}</td><td>${r.year}</td><td>${fmt(r.annual_sales)}</td><td>${r.battery_technology}</td><td>${r.driving_range_km}</td><td>${r.manufacturing_country}</td><td>${r.customer_rating}</td></tr>`).join('');
+ $('status').textContent='Updated • '+new Date().toLocaleTimeString();
+}
+['year','category','manufacturer'].forEach(id=>$(id).addEventListener('change',refresh));
+$('reset').addEventListener('click',()=>{['year','category','manufacturer'].forEach(id=>$(id).value='All');refresh();});
+refresh();
+</script></body></html>

@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+data/ev_market.db
+.env
+.DS_Store
